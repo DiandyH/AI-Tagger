@@ -1,0 +1,2 @@
+# 这个文件确保images目录被Git跟踪
+# 实际的图片文件会被.gitignore忽略

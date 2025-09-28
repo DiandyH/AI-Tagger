@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片库AI打标签服务 - 测试页面</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .upload-section {
+            border: 2px dashed #ddd;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+        }
+        
+        .upload-section:hover {
+            border-color: #007bff;
+        }
+        
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .tag {
+            background-color: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .images-list {
+            margin-top: 30px;
+        }
+        
+        .image-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        
+        .image-item img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-right: 15px;
+        }
+        
+        .image-info {
+            flex: 1;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ 图片库AI打标签服务</h1>
+        
+        <div class="upload-section">
+            <h3>上传图片并获取AI标签</h3>
+            <input type="file" id="fileInput" accept="image/*">
+            <br>
+            <button onclick="uploadImage()" id="uploadBtn">上传并分析</button>
+        </div>
+        
+        <div id="result" class="result"></div>
+        
+        <div class="images-list">
+            <h3>已上传的图片</h3>
+            <button onclick="loadImages()">刷新图片列表</button>
+            <div id="imagesList"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        
+        async function uploadImage() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const result = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                showResult('请选择一个图片文件', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '上传中...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`
+                        <strong>上传成功！</strong><br>
+                        <strong>文件名：</strong>${data.filename}<br>
+                        <strong>AI标签：</strong>
+                        <div class="tags">
+                            ${data.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                        <br>
+                        <img src="${data.image_url}" style="max-width: 200px; border-radius: 5px;" alt="上传的图片">
+                    `, 'success');
+                    
+                    // 刷新图片列表
+                    loadImages();
+                } else {
+                    showResult(`上传失败：${data.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult(`网络错误：${error.message}`, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '上传并分析';
+            }
+        }
+        
+        function showResult(message, type) {
+            const result = document.getElementById('result');
+            result.innerHTML = message;
+            result.className = `result ${type}`;
+            result.style.display = 'block';
+        }
+        
+        async function loadImages() {
+            const imagesList = document.getElementById('imagesList');
+            imagesList.innerHTML = '<div class="loading">加载中...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/images/list`);
+                const data = await response.json();
+                
+                if (data.images && data.images.length > 0) {
+                    imagesList.innerHTML = data.images.map(image => `
+                        <div class="image-item">
+                            <img src="${image.url}" alt="${image.filename}">
+                            <div class="image-info">
+                                <strong>${image.filename}</strong>
+                                <button onclick="getImageTags('${image.filename}')" style="margin-left: 10px; font-size: 12px;">获取标签</button>
+                                <div id="tags-${image.filename.replace(/[^a-zA-Z0-9]/g, '_')}"></div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    imagesList.innerHTML = '<p>暂无图片</p>';
+                }
+            } catch (error) {
+                imagesList.innerHTML = `<p>加载失败：${error.message}</p>`;
+            }
+        }
+        
+        async function getImageTags(filename) {
+            const tagElementId = `tags-${filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            const tagElement = document.getElementById(tagElementId);
+            tagElement.innerHTML = '获取标签中...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/images/${filename}/tags`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    tagElement.innerHTML = `
+                        <div class="tags">
+                            ${data.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                    `;
+                } else {
+                    tagElement.innerHTML = `<span style="color: red;">获取失败：${data.detail}</span>`;
+                }
+            } catch (error) {
+                tagElement.innerHTML = `<span style="color: red;">网络错误：${error.message}</span>`;
+            }
+        }
+        
+        // 页面加载时自动加载图片列表
+        window.onload = function() {
+            loadImages();
+        };
+    </script>
+</body>
+</html>

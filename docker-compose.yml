@@ -1,0 +1,27 @@
+services:
+  image-tagger:
+    build: .
+    container_name: image-tagger-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./images:/app/images
+      - ./app:/app/app
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  images:
+    driver: local
